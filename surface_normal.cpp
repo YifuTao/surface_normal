@@ -340,6 +340,13 @@ int main(int argc, char** argv)
         WINDOWSIZE=7;
         Threshold=0.1;
     }
+    else if(data_type == string("carla"))
+    {
+        f = 424.0; cx = 424.0; cy = 240.0;
+        fcxcy[0] = f; fcxcy[1] = cx; fcxcy[2] = cy;
+        WINDOWSIZE=3;
+        Threshold=0.1;
+    }
     else
     {
         cout << "Data Type error, only support [nyudv2, kitti2015, kitti2012, scannet] now!" << endl;
