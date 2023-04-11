@@ -11,3 +11,15 @@
 
 # scannet
 # ./build/surface_normal scannet /Users/zhangyoumin/data/ScanNet/scans/scene0000_00/depth/0.png /Users/zhangyoumin/Desktop/sn_scannet.png 1000.0
+
+# custom
+# ./build/surface_normal carla ./asserts/22.822522964.png ./asserts/sn_carla.png 256.0
+
+# follow the above format to compute normal for all depth images in a folder
+DEPTH_DIR='/home/yifu/data/nerfstudio/carla/town02_loop/depth_encoding_256'
+NORMAL_DIR='/home/yifu/data/nerfstudio/carla/town02_loop/normal'
+mkdir -p $NORMAL_DIR
+for file in $DEPTH_DIR/*.png; do
+    echo $file
+    ./build/surface_normal carla $file $NORMAL_DIR/$(basename $file) 256.0
+done
