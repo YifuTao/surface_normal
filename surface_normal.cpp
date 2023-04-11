@@ -62,9 +62,9 @@ bool convert_direction(float * sn,int i,int j,float d)
 	Vec3f surface_normal = Vec3f(sn[0],sn[1],sn[2]);
 	float cos_angle = world_pos.dot(surface_normal);
 	if (cos_angle >= 0)
-	    return false;
+	    return true;
 	else 
-        return true;
+        return false;
  
 }
 
