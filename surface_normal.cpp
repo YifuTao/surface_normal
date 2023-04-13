@@ -4,6 +4,9 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <pcl/point_cloud.h>
+#include <pcl/io/pcd_io.h>
+
 /**
 #define DEBUG
 #define DEEPDEBUG
@@ -20,6 +23,7 @@ bool IS_FISHEYE = false;
 bool IS_EUCLIDEAN = false;
 
 std::vector<cv::Point2f> undistort_fisheye(const int u, const int v);
+void reproject_depth(cv::Mat depth_img);
 void reproject(const int &i, const int &j, const float &depth,
                 float &x, float &y, float &z, const bool &is_fisheye, const bool &is_euclidean);
 void cvFitPlane(const Mat & points, float* plane);
@@ -52,6 +56,28 @@ std::vector<cv::Point2f> undistort_fisheye(const int u, const int v)
 
     return undistorted_points;
 }
+
+void reproject_depth(cv::Mat depth_img)
+{
+    pcl::PointCloud<pcl::PointXYZ> reprojected_cloud;
+    for (int i = 0; i < depth_img.rows; i++)
+    {
+        for (int j = 0; j < depth_img.cols; j++)
+        {
+            float depth = depth_img.at<float>(i, j);
+            if (depth > 0)
+            {
+                float x, y, z;
+                reproject(i, j, depth, x, y, z, IS_FISHEYE, IS_EUCLIDEAN);
+                pcl::PointXYZ point(x, y, z);
+                reprojected_cloud.push_back(point);
+            }
+        }
+    }
+    pcl::io::savePCDFileASCII("reprojected_cloud.pcd", reprojected_cloud);
+
+}
+
 void reproject(const int &i, const int &j, const float &depth,
                 float &x, float &y, float &z, const bool &is_fisheye, const bool &is_euclidean)
 {
@@ -413,6 +439,7 @@ int main(int argc, char** argv)
         fcxcy[0] = f; fcxcy[1] = cx; fcxcy[2] = cy;
         WINDOWSIZE=3;
         Threshold=0.1;
+        reproject_depth(src);
     }
     else if (data_type == string("frontier_15"))
     {
@@ -421,6 +448,7 @@ int main(int argc, char** argv)
         IS_FISHEYE = true;
         IS_EUCLIDEAN = true;
         // IS_EUCLIDEAN = false;
+        reproject_depth(src);
     }
     else
     {
