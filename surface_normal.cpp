@@ -1,4 +1,5 @@
 #include <iostream>
+#include <opencv2/opencv.hpp> // include the main OpenCV header file
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -15,12 +16,72 @@ const float eps = 1e-8;
 float fcxcy[3];//SET THE CAMERA PARAMETERS  F CX CY.
 int  WINDOWSIZE=7;//SET SEARCH WINDOWSIZE(SUGGEST 15).
 float Threshold=0.1;//SET THE threshold (SUGGEST 0.1-0.2).
+bool IS_FISHEYE = false;
+bool IS_EUCLIDEAN = false;
 
+std::vector<cv::Point2f> undistort_fisheye(const int u, const int v);
+void reproject(const int &i, const int &j, const float &depth,
+                float &x, float &y, float &z, const bool &is_fisheye, const bool &is_euclidean);
 void cvFitPlane(const Mat & points, float* plane);
 void CallFitPlane(const Mat& depth,int * points,int i,int j,float *plane12);
 void search_plane_neighbor(Mat &img, int i, int j, int* result);
 bool convert_direction(float * sn,int i,int j,float d);
 Mat calplanenormal(Mat  &src);
+
+std::vector<cv::Point2f> undistort_fisheye(const int u, const int v)
+{
+    float fx = 694.6480875986848;
+    float fy = 694.4926951623794;
+    float cx = 720.1043204798401;
+    float cy = 542.2800848175492;
+    float k1 = -0.043637081012621544;
+    float k2 = 0.004475520498292265;
+    float k3 = -0.004157185000418484;
+    float k4 = 0.0007632305719930173;
+
+    cv::Mat K = (cv::Mat_<double>(3,3) << fx, 0, cx, 0, fy, cy, 0, 0, 1); // camera matrix
+    cv::Mat D = (cv::Mat_<double>(1,4) << k1, k2, k3, k4); // distortion coefficients
+    
+    std::vector<cv::Point2f> distorted_points = {cv::Point2f(v, u)};
+    std::vector<cv::Point2f> undistorted_points;
+
+    cv::fisheye::undistortPoints(distorted_points, undistorted_points, K, D);
+    // for (int i = 0; i < undistorted_points.size(); i++) {
+    //     std::cout << "Undistorted point " << i << ": " << undistorted_points[i] << std::endl;
+    // }
+
+    return undistorted_points;
+}
+void reproject(const int &i, const int &j, const float &depth,
+                float &x, float &y, float &z, const bool &is_fisheye, const bool &is_euclidean)
+{
+    if (is_fisheye)
+    {
+        // undistort fisheye
+        std::vector<cv::Point2f> undistorted = undistort_fisheye(i, j);
+        x = undistorted[0].x;
+        y = undistorted[0].y;
+        // std::cout << "i=" << i << " j=" << j << " x=" << x << " y=" << y << " raw "<<undistorted << " " << undistorted[2]<< std::endl;
+        z = 1.0;
+        if (is_euclidean)
+        {
+            // normalise 
+            float norm = sqrt(x*x + y*y + z*z);
+            x /= norm;
+            y /= norm;
+            z /= norm;
+        }
+        x *= depth;
+        y *= depth;
+        z *= depth;
+    }
+    else
+    {
+        x = (j - fcxcy[1]) * depth * 1.0 / fcxcy[0];
+        y = (i - fcxcy[2]) * depth * 1.0 / fcxcy[0];
+        z = depth;
+    }
+}
 
 void search_plane_neighbor(Mat &img, int i, int j, int* result)
 {
@@ -51,12 +112,15 @@ void search_plane_neighbor(Mat &img, int i, int j, int* result)
 
 bool convert_direction(float * sn,int i,int j,float d)
 {
-	float f =fcxcy[0];
-	float cx=fcxcy[1];
-	float cy=fcxcy[2];
-	float x = (j - cx) *d * 1.0 / f;
-    float y = (i - cy) *d * 1.0 / f;
-    float z = d;
+	// float f =fcxcy[0];
+	// float cx=fcxcy[1];
+	// float cy=fcxcy[2];
+	// float x = (j - cx) *d * 1.0 / f;
+    // float y = (i - cy) *d * 1.0 / f;
+    // float z = d;
+    float x, y, z;
+
+    reproject(i, j, d, x, y, z, IS_FISHEYE, IS_EUCLIDEAN);
 	// Vec3f world_center=Vec3f(0, 0, 0);
 	Vec3f world_pos = Vec3f(x-0, y-0, z-0);
 	Vec3f surface_normal = Vec3f(sn[0],sn[1],sn[2]);
@@ -71,9 +135,9 @@ bool convert_direction(float * sn,int i,int j,float d)
 // Ax+by+cz=D
 void CallFitPlane(const Mat& depth,int * points,int i,int j,float *plane12) 
 {
-	float f =fcxcy[0];
-	float cx=fcxcy[1];
-	float cy=fcxcy[2];
+	// float f =fcxcy[0];
+	// float cx=fcxcy[1];
+	// float cy=fcxcy[2];
 	vector<float>X_vector;
 	vector<float>Y_vector;
 	vector<float>Z_vector;
@@ -91,9 +155,12 @@ void CallFitPlane(const Mat& depth,int * points,int i,int j,float *plane12)
             // col index in image
             point_j+=j-int(WINDOWSIZE/2);
 
-		    float x = (point_j - cx) * depth.at<float>(point_i, point_j) * 1.0 / f;
-		    float y = (point_i - cy) * depth.at<float>(point_i, point_j) * 1.0 / f;
-		    float z = depth.at<float>(point_i,point_j);
+		    // float x = (point_j - cx) * depth.at<float>(point_i, point_j) * 1.0 / f;
+		    // float y = (point_i - cy) * depth.at<float>(point_i, point_j) * 1.0 / f;
+		    // float z = depth.at<float>(point_i,point_j);
+            float x, y, z;
+            reproject(point_i, point_j, depth.at<float>(point_i, point_j),
+                    x, y, z, IS_FISHEYE, IS_EUCLIDEAN);
 		    X_vector.push_back(x);
 		    Y_vector.push_back(y);
 		    Z_vector.push_back(z);
@@ -346,6 +413,14 @@ int main(int argc, char** argv)
         fcxcy[0] = f; fcxcy[1] = cx; fcxcy[2] = cy;
         WINDOWSIZE=3;
         Threshold=0.1;
+    }
+    else if (data_type == string("frontier_15"))
+    {
+        WINDOWSIZE = 12;
+        Threshold = 0.1;
+        IS_FISHEYE = true;
+        IS_EUCLIDEAN = true;
+        // IS_EUCLIDEAN = false;
     }
     else
     {
