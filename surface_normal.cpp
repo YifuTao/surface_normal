@@ -29,7 +29,8 @@ void reproject(const int &i, const int &j, const float &depth,
 void cvFitPlane(const Mat & points, float* plane);
 void CallFitPlane(const Mat& depth,int * points,int i,int j,float *plane12);
 void search_plane_neighbor(Mat &img, int i, int j, int* result);
-bool convert_direction(float * sn,int i,int j,float d);
+float calculate_cos_angle(float * sn,int i,int j,float d);
+bool convert_direction(float cos);
 Mat calplanenormal(Mat  &src);
 
 std::vector<cv::Point2f> undistort_fisheye(const int u, const int v)
@@ -137,7 +138,7 @@ void search_plane_neighbor(Mat &img, int i, int j, int* result)
     }
 }
 
-bool convert_direction(float * sn,int i,int j,float d)
+float calculate_cos_angle(float * sn,int i,int j,float d)
 {
 	// float f =fcxcy[0];
 	// float cx=fcxcy[1];
@@ -151,12 +152,21 @@ bool convert_direction(float * sn,int i,int j,float d)
 	// Vec3f world_center=Vec3f(0, 0, 0);
 	Vec3f world_pos = Vec3f(x-0, y-0, z-0);
 	Vec3f surface_normal = Vec3f(sn[0],sn[1],sn[2]);
-	float cos_angle = world_pos.dot(surface_normal);
+    float mag_world_pos = sqrt(world_pos[0]*world_pos[0]+world_pos[1]*world_pos[1]+world_pos[2]*world_pos[2]);
+    float mag_surface_normal = sqrt(surface_normal[0]*surface_normal[0]+surface_normal[1]*surface_normal[1]+surface_normal[2]*surface_normal[2]);
+	float cos_angle = world_pos.dot(surface_normal) / mag_world_pos / mag_surface_normal;
+
+
+    return cos_angle;
+ 
+}
+
+bool convert_direction(float cos_angle)
+{
 	if (cos_angle >= 0)
 	    return true;
 	else 
         return false;
- 
 }
 
 // Ax+by+cz=D
@@ -218,7 +228,10 @@ void CallFitPlane(const Mat& depth,int * points,int i,int j,float *plane12)
     // plane fitting, least square error
 	cvFitPlane(points_mat, plane12);
 
-	if(convert_direction(plane12,i,j,depth.at<float>(i,j)))
+    float cos = calculate_cos_angle(plane12,i,j,depth.at<float>(i,j));
+    float angle = acos(abs(cos))*180/3.1415926;
+
+	if(convert_direction(cos))
     {
 		plane12[0]=-plane12[0];
 		plane12[1]=-plane12[1];
