@@ -34,6 +34,7 @@ Mat calplanenormal(Mat  &src);
 
 std::vector<cv::Point2f> undistort_fisheye(const int u, const int v)
 {
+    // u is column, v is row
     float fx = 694.6480875986848;
     float fy = 694.4926951623794;
     float cx = 720.1043204798401;
@@ -46,7 +47,7 @@ std::vector<cv::Point2f> undistort_fisheye(const int u, const int v)
     cv::Mat K = (cv::Mat_<double>(3,3) << fx, 0, cx, 0, fy, cy, 0, 0, 1); // camera matrix
     cv::Mat D = (cv::Mat_<double>(1,4) << k1, k2, k3, k4); // distortion coefficients
     
-    std::vector<cv::Point2f> distorted_points = {cv::Point2f(v, u)};
+    std::vector<cv::Point2f> distorted_points = {cv::Point2f(u, v)};
     std::vector<cv::Point2f> undistorted_points;
 
     cv::fisheye::undistortPoints(distorted_points, undistorted_points, K, D);
@@ -84,7 +85,7 @@ void reproject(const int &i, const int &j, const float &depth,
     if (is_fisheye)
     {
         // undistort fisheye
-        std::vector<cv::Point2f> undistorted = undistort_fisheye(i, j);
+        std::vector<cv::Point2f> undistorted = undistort_fisheye(j, i); // (u, v)
         x = undistorted[0].x;
         y = undistorted[0].y;
         // std::cout << "i=" << i << " j=" << j << " x=" << x << " y=" << y << " raw "<<undistorted << " " << undistorted[2]<< std::endl;
